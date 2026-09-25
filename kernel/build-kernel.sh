@@ -36,28 +36,6 @@ stage_boot_templates() {
 prepare_stage_dir
 stage_boot_templates
 
-# Console-ordering pitfall (rg35xxh PITFALLS #3): Linux uses the LAST console=
-# as /dev/console. UART pads aren't usable on handheld, so tty1 must win.
-# Portable sed (GNU + BSD macOS): use backup suffix then remove it.
-sedi() { sed -i.bak "$@" ; rm -f "$BOOT_STAGE_DIR"/cmdline.txt.bak; }
-if grep -q 'console=' "$BOOT_STAGE_DIR/cmdline.txt"; then
-    if ! grep -Eqo 'console=tty1[^ ]* *$' "$BOOT_STAGE_DIR/cmdline.txt"; then
-        # Move console=tty1 to the end while preserving other args
-        tmp=$(grep -o 'console=tty1[^ ]*' "$BOOT_STAGE_DIR/cmdline.txt" | head -1 || true)
-        if [[ -n "${tmp:-}" ]]; then
-            sedi 's/ *console=tty1[^ ]*//g' "$BOOT_STAGE_DIR/cmdline.txt"
-            sedi "s|$| $tmp|" "$BOOT_STAGE_DIR/cmdline.txt"
-        else
-            sedi 's|$| console=tty1|' "$BOOT_STAGE_DIR/cmdline.txt"
-        fi
-        log "Fixed console ordering: tty1 last"
-    fi
-fi
-
-# Root spec: pack-image.sh normalizes to LABEL=GHOST_ROOT; keep ROOTDEV placeholder here
-grep -q 'root=' "$BOOT_STAGE_DIR/cmdline.txt" || \
-    sedi 's|$| root=LABEL=GHOST_ROOT|' "$BOOT_STAGE_DIR/cmdline.txt"
-
 log "Staged uConsole boot configuration"
 log "  firmware config: $BOOT_STAGE_DIR/config.txt"
 log "  kernel cmdline:  $BOOT_STAGE_DIR/cmdline.txt"

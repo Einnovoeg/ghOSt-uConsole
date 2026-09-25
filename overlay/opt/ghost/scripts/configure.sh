@@ -344,7 +344,6 @@ chmod 600 /home/$GHOST_USER/.ssh/config
 # NETWORK MANAGER
 # =============================================================================
 log "Configuring NetworkManager..."
-mkdir -p /etc/NetworkManager/conf.d
 cat > /etc/NetworkManager/conf.d/ghost.conf << 'EOF'
 [main]
 plugins=ifupdown,keyfile
@@ -364,7 +363,6 @@ EOF
 # =============================================================================
 # BLUETOOTH CONFIGURATION
 # =============================================================================
-mkdir -p /etc/bluetooth
 cat > /etc/bluetooth/main.conf << 'EOF'
 [Policy]
 AutoEnable=true
@@ -660,7 +658,6 @@ chmod -x /etc/update-motd.d/* 2>/dev/null || true
 # =============================================================================
 # DNSCRYPT-PROXY
 # =============================================================================
-mkdir -p /etc/dnscrypt-proxy
 cat > /etc/dnscrypt-proxy/dnscrypt-proxy.toml << 'EOF'
 server_names = ['cloudflare', 'google', 'quad9-dnscrypt-ip4-filter-pri']
 listen_addresses = ['127.0.0.1:53']
@@ -728,7 +725,7 @@ systemctl enable ghost-expand-fs.service
 # RAM AUDIT & CONSTRAINTS
 # =============================================================================
 chmod +x /opt/ghost/scripts/ram-audit.sh
-bash /opt/ghost/scripts/ram-audit.sh || echo "[warn] ram-audit warnings (continuing)"
+bash /opt/ghost/scripts/ram-audit.sh
 
 # =============================================================================
 # WIRE UP NEW COMPONENTS

@@ -172,7 +172,7 @@ log "dnscrypt-proxy max clients reduced"
 # CONSTRAIN: pipewire
 # Reduce audio buffer sizes to save a few MB
 # =============================================================================
-mkdir -p /home/ghost/.config/pipewire/pipewire.conf.d
+mkdir -p /home/ghost/.config/pipewire
 cat > /home/ghost/.config/pipewire/pipewire.conf.d/ghost-memory.conf << 'PW'
 context.properties = {
     default.clock.quantum        = 1024

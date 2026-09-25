@@ -281,54 +281,6 @@ assemble_image() {
 }
 
 # =============================================================================
-# STAGED BUILD (rg35xxh-cyberdeck pattern: idempotent, CI-friendly)
-# New minimal bootable path: rootfs/stages/* + image/pack-image.sh.
-# Legacy monolithic path (rootfs/build-rootfs.sh + assemble_image) is kept
-# for the large toolset when USE_STAGED_ROOTFS=false.
-# =============================================================================
-build_rootfs_staged() {
-    section "Staged Rootfs (bootable minimal, like rg35xxh)"
-    local st="$SCRIPT_DIR/rootfs/stages"
-    if [[ -d "$ROOTFS_DIR/etc" && -f "$ROOTFS_DIR/etc/debian_version" ]] && ! is_enabled "${GHOST_FORCE_ROOTFS:-false}"; then
-        log "rootfs present, skipping (GHOST_FORCE_ROOTFS=1 to override)"
-        return 0
-    fi
-    rm -rf "$ROOTFS_DIR"
-    mkdir -p "$ROOTFS_DIR"
-    bash "$st/00-debootstrap.sh" "$ROOTFS_DIR"
-    bash "$st/10-base-pkgs.sh" "$ROOTFS_DIR"
-    bash "$st/20-desktop.sh" "$ROOTFS_DIR"
-    bash "$st/30-handheld.sh" "$ROOTFS_DIR"
-    bash "$st/40-network.sh" "$ROOTFS_DIR"
-    bash "$st/50-overlay.sh" "$ROOTFS_DIR" "$SCRIPT_DIR/overlay"
-    # ghOSt extras on top of minimal bootable base
-    apply_overlay
-    configure_chroot
-    bash "$SCRIPT_DIR/patches/kernel/verify-pi-boot.sh" "$ROOTFS_DIR" || \
-        warn "boot verification warnings (see above)"
-    bash "$st/99-cleanup.sh" "$ROOTFS_DIR"
-    log "Staged rootfs complete"
-}
-
-pack_image_staged() {
-    section "Packing Image (bmap+xz, like rg35xxh)"
-    local work dist
-    # image/pack-image.sh expects WORK with rootfs/ + kernel/boot-firmware/
-    work=$(mktemp -d)
-    dist="$OUTPUT_DIR"
-    mkdir -p "$dist"
-    rm -rf "$work/rootfs" "$work/kernel"
-    cp -a "$ROOTFS_DIR" "$work/rootfs"
-    mkdir -p "$work/kernel"
-    if [[ -d "$KERNEL_BUILD_DIR/boot-firmware" ]]; then
-        mkdir -p "$work/kernel/boot-firmware"
-        cp -a "$KERNEL_BUILD_DIR/boot-firmware/"* "$work/kernel/boot-firmware/" 2>/dev/null || true
-    fi
-    bash "$SCRIPT_DIR/image/pack-image.sh" "$work" "$dist"
-    rm -rf "$work"
-}
-
-# =============================================================================
 # MAIN
 # =============================================================================
 main() {
@@ -357,54 +309,34 @@ EOF
 
     preflight
 
-    # Staged CI path (default when rootfs/stages exists and not explicitly disabled).
-    # Set USE_STAGED_ROOTFS=false to force the legacy monolithic build.
-    if [[ -d "$SCRIPT_DIR/rootfs/stages" && "${USE_STAGED_ROOTFS:-true}" == "true" && "${1:-all}" == "all" ]]; then
-        if is_enabled "${SKIP_KERNEL:-false}"; then
-            warn "SKIP_KERNEL — reusing staged kernel assets"
-        else
-            build_kernel
-        fi
-        if is_enabled "${SKIP_ROOTFS:-false}"; then
-            warn "SKIP_ROOTFS — reusing rootfs"
-        else
-            build_rootfs_staged
-        fi
-        if is_enabled "${SKIP_IMAGE:-false}"; then
-            warn "SKIP_IMAGE — skipping pack"
-        else
-            pack_image_staged
-        fi
+    if is_enabled "${SKIP_KERNEL:-false}"; then
+        warn "SKIP_KERNEL is enabled — reusing existing staged kernel assets"
     else
-        if is_enabled "${SKIP_KERNEL:-false}"; then
-            warn "SKIP_KERNEL is enabled — reusing existing staged kernel assets"
-        else
-            build_kernel
-        fi
+        build_kernel
+    fi
 
-        if is_enabled "${SKIP_ROOTFS:-false}"; then
-            warn "SKIP_ROOTFS is enabled — reusing existing rootfs"
-        else
-            build_rootfs
-        fi
+    if is_enabled "${SKIP_ROOTFS:-false}"; then
+        warn "SKIP_ROOTFS is enabled — reusing existing rootfs"
+    else
+        build_rootfs
+    fi
 
-        if is_enabled "${SKIP_OVERLAY:-false}"; then
-            warn "SKIP_OVERLAY is enabled — skipping overlay application"
-        else
-            apply_overlay
-        fi
+    if is_enabled "${SKIP_OVERLAY:-false}"; then
+        warn "SKIP_OVERLAY is enabled — skipping overlay application"
+    else
+        apply_overlay
+    fi
 
-        if is_enabled "${SKIP_CONFIGURE:-false}"; then
-            warn "SKIP_CONFIGURE is enabled — skipping in-chroot configuration"
-        else
-            configure_chroot
-        fi
+    if is_enabled "${SKIP_CONFIGURE:-false}"; then
+        warn "SKIP_CONFIGURE is enabled — skipping in-chroot configuration"
+    else
+        configure_chroot
+    fi
 
-        if is_enabled "${SKIP_IMAGE:-false}"; then
-            warn "SKIP_IMAGE is enabled — skipping image assembly"
-        else
-            assemble_image
-        fi
+    if is_enabled "${SKIP_IMAGE:-false}"; then
+        warn "SKIP_IMAGE is enabled — skipping image assembly"
+    else
+        assemble_image
     fi
 
     local elapsed=$(( SECONDS - start_time ))
