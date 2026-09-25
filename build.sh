@@ -138,6 +138,15 @@ apply_overlay() {
             "$ROOTFS_DIR$BOOT_FIRMWARE_DIR/"
     fi
 
+    # Debian-fallback kernels boot via initramfs: if the platform stage
+    # normalized one into /boot/firmware/initramfs8, make the firmware
+    # actually load it (the stock template has no initramfs line).
+    if [[ -f "$ROOTFS_DIR$BOOT_FIRMWARE_DIR/initramfs8" ]] && \
+       ! grep -q '^initramfs ' "$ROOTFS_DIR$BOOT_FIRMWARE_DIR/config.txt" 2>/dev/null; then
+        log "Wiring fallback initramfs into boot config..."
+        echo "initramfs initramfs8 followkernel" >> "$ROOTFS_DIR$BOOT_FIRMWARE_DIR/config.txt"
+    fi
+
     if [[ -f "$KERNEL_BUILD_DIR/cm5-eeprom.conf" ]]; then
         log "Installing CM5 EEPROM template..."
         install -D -m 0644 "$KERNEL_BUILD_DIR/cm5-eeprom.conf" \
@@ -174,20 +183,29 @@ apply_overlay() {
 configure_chroot() {
     section "Configuring System (chroot)"
 
-    # Mount necessary filesystems
+    # Mount necessary filesystems (dev/pts needed by apt/dpkg postinst scripts,
+    # resolv.conf so in-chroot downloads like log2ram/Pillow can resolve DNS)
+    mkdir -p "$ROOTFS_DIR/dev/pts" "$ROOTFS_DIR/proc" "$ROOTFS_DIR/sys"
     mount --bind /dev  "$ROOTFS_DIR/dev"
+    mount --bind /dev/pts "$ROOTFS_DIR/dev/pts" 2>/dev/null || true
     mount --bind /proc "$ROOTFS_DIR/proc"
     mount --bind /sys  "$ROOTFS_DIR/sys"
     mount -t tmpfs tmpfs "$ROOTFS_DIR/tmp"
+    cp -f /etc/resolv.conf "$ROOTFS_DIR/etc/resolv.conf" 2>/dev/null || true
 
-    # Run chroot configuration script
-    chroot "$ROOTFS_DIR" /bin/bash /opt/ghost/scripts/configure.sh
+    # Always release chroot mounts, even if configuration fails midway —
+    # otherwise a retry hits "already mounted" and stale resolv.conf leaks in.
+    local chroot_failed=0
+    chroot "$ROOTFS_DIR" /bin/bash /opt/ghost/scripts/configure.sh || chroot_failed=1
 
     # Cleanup mounts
-    umount "$ROOTFS_DIR/tmp"  || true
-    umount "$ROOTFS_DIR/sys"  || true
-    umount "$ROOTFS_DIR/proc" || true
-    umount "$ROOTFS_DIR/dev"  || true
+    umount -l "$ROOTFS_DIR/tmp"  || true
+    umount -l "$ROOTFS_DIR/sys"  || true
+    umount -l "$ROOTFS_DIR/proc" || true
+    umount -l "$ROOTFS_DIR/dev/pts" || true
+    umount -l "$ROOTFS_DIR/dev"  || true
+
+    [[ "$chroot_failed" == "0" ]] || error "In-chroot configuration failed"
 
     log "Chroot configuration complete"
 }

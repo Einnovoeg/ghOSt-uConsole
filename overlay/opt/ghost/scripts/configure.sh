@@ -14,7 +14,8 @@ set -euo pipefail
 : "${GHOST_LOCALE:=en_US.UTF-8}"
 : "${BATTERY_CHARGE_LIMIT:=80}"
 
-log() { echo "[configure] $*"; }
+log()  { echo "[configure] $*"; }
+warn() { echo "[configure:WARN] $*"; }
 
 
 disable_system_service() {
@@ -118,7 +119,7 @@ fi
 passwd -d "$GHOST_USER" 2>/dev/null || true
 
 # Root also gets fish
-chsh -s /usr/bin/fish root
+chsh -s /usr/bin/fish root || true
 
 # =============================================================================
 # SUDOERS
@@ -344,6 +345,7 @@ chmod 600 /home/$GHOST_USER/.ssh/config
 # NETWORK MANAGER
 # =============================================================================
 log "Configuring NetworkManager..."
+mkdir -p /etc/NetworkManager/conf.d
 cat > /etc/NetworkManager/conf.d/ghost.conf << 'EOF'
 [main]
 plugins=ifupdown,keyfile
@@ -363,6 +365,7 @@ EOF
 # =============================================================================
 # BLUETOOTH CONFIGURATION
 # =============================================================================
+mkdir -p /etc/bluetooth
 cat > /etc/bluetooth/main.conf << 'EOF'
 [Policy]
 AutoEnable=true
@@ -658,6 +661,7 @@ chmod -x /etc/update-motd.d/* 2>/dev/null || true
 # =============================================================================
 # DNSCRYPT-PROXY
 # =============================================================================
+mkdir -p /etc/dnscrypt-proxy
 cat > /etc/dnscrypt-proxy/dnscrypt-proxy.toml << 'EOF'
 server_names = ['cloudflare', 'google', 'quad9-dnscrypt-ip4-filter-pri']
 listen_addresses = ['127.0.0.1:53']

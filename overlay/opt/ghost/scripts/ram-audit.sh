@@ -150,6 +150,7 @@ log "Syncthing constrained to low-memory mode"
 # CONSTRAIN: Tor — reduce memory footprint
 # Default tor uses ~25MB. With these: ~15MB
 # =============================================================================
+mkdir -p /etc/tor
 cat >> /etc/tor/torrc << 'TOR'
 # ghOSt memory constraints
 AvoidDiskWrites 1
@@ -165,14 +166,18 @@ log "Tor memory-constrained"
 # =============================================================================
 # CONSTRAIN: dnscrypt-proxy
 # =============================================================================
-sed -i 's/max_clients = .*/max_clients = 50/' /etc/dnscrypt-proxy/dnscrypt-proxy.toml
-log "dnscrypt-proxy max clients reduced"
+if [[ -f /etc/dnscrypt-proxy/dnscrypt-proxy.toml ]]; then
+    sed -i 's/max_clients = .*/max_clients = 50/' /etc/dnscrypt-proxy/dnscrypt-proxy.toml
+    log "dnscrypt-proxy max clients reduced"
+else
+    log "dnscrypt-proxy config missing; skipping constraint"
+fi
 
 # =============================================================================
 # CONSTRAIN: pipewire
 # Reduce audio buffer sizes to save a few MB
 # =============================================================================
-mkdir -p /home/ghost/.config/pipewire
+mkdir -p /home/ghost/.config/pipewire/pipewire.conf.d
 cat > /home/ghost/.config/pipewire/pipewire.conf.d/ghost-memory.conf << 'PW'
 context.properties = {
     default.clock.quantum        = 1024

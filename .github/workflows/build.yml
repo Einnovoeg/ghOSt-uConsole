@@ -1,0 +1,61 @@
+name: build-uconsole
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install host build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            debootstrap qemu-user-static binfmt-support \
+            kpartx parted gdisk dosfstools xz-utils \
+            device-tree-compiler rsync git curl wget \
+            python3 pv lz4 zstd parted
+          sudo update-binfmts --enable qemu-aarch64 2>/dev/null || true
+          df -h
+
+      - name: Bash syntax check
+        run: |
+          bash -n build.sh
+          bash -n config.sh
+          bash -n kernel/build-kernel.sh
+          bash -n rootfs/build-rootfs.sh
+          bash -n overlay/opt/ghost/scripts/configure.sh
+          bash -n overlay/opt/ghost/scripts/ram-audit.sh
+          bash -n scripts/smoke-test-image.sh
+          python3 -m py_compile launcher/launcher.py stealthd/stealthd.py hey/hey.py
+
+      - name: Build image (full ghOSt-uConsole flow)
+        run: |
+          sudo ./build.sh
+          ls -lh build/output/
+
+      - name: Smoke-test bootable image
+        run: |
+          IMG=$(ls build/output/ghOSt-uConsole-*.img | head -1)
+          sudo bash scripts/smoke-test-image.sh "$IMG"
+
+      - name: Prepare artifact (fix root ownership)
+        run: |
+          sudo chown -R "$(whoami)" build/output/ || true
+          cd build/output
+          sha256sum ghOSt-uConsole-*.img.gz > SHA256SUMS
+          cat SHA256SUMS
+          ls -lh
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghost-uconsole-cm4-image
+          path: build/output/*
+          retention-days: 14

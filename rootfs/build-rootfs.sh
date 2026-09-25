@@ -549,8 +549,12 @@ EOF
     timeout 120 $CHROOT bash -c "set -e; \
         curl --connect-timeout 20 --max-time 90 --retry 5 --retry-delay 3 --retry-all-errors -fsSL '$CLOCKWORKPI_APT_KEY_URL' | \
         gpg --batch --yes --dearmor -o /usr/share/keyrings/clockworkpi-archive-keyring.gpg" || {
-        warn "Failed to fetch ClockworkPi archive key"
-        return 1
+        # The ClockworkPi community feed is the most likely network step to
+        # fail (and CM4 SD boot still works from Debian + RPi firmware with
+        # the fallback kernel below). Disable the feed and continue instead
+        # of aborting the whole multi-hour build here.
+        warn "Failed to fetch ClockworkPi archive key — disabling ClockworkPi feed, continuing with Debian + RPi only"
+        $CHROOT bash -c "rm -f /etc/apt/sources.list.d/clockworkpi.list"
     }
 
     if [[ -n "$TOOLSET_SIZE" ]]; then
@@ -676,6 +680,31 @@ install_uconsole_platform() {
     mkdir -p "$ROOTFS_DIR$BOOT_FIRMWARE_DIR"
     if [[ ! -L "$ROOTFS_DIR/boot/overlays" ]]; then
         ln -snf firmware/overlays "$ROOTFS_DIR/boot/overlays"
+    fi
+
+    # --- Boot-kernel guarantee for CM4 Lite SD boot ---
+    # Debootstrap installs no kernel at all, so if the ClockworkPi kernel
+    # package failed (feed unreachable), the image would silently ship
+    # without any kernel and never boot. Fall back to the Debian arm64
+    # kernel + RPi firmware and normalize it into the /boot/firmware
+    # layout the Pi bootloader reads (kernel8.img + initramfs8).
+    local has_kernel=false
+    if ls "$ROOTFS_DIR"/boot/kernel*.img "$ROOTFS_DIR"/boot/vmlinuz* \
+        "$ROOTFS_DIR"/boot/firmware/kernel*.img "$ROOTFS_DIR"/boot/firmware/vmlinuz* \
+        2>/dev/null | grep -q .; then
+        has_kernel=true
+    fi
+    if ! $has_kernel; then
+        warn "No boot kernel found after platform install — installing Debian fallback (linux-image-arm64 + raspi-firmware)"
+        $APT linux-image-arm64 raspi-firmware || warn "Fallback kernel install had errors"
+        $CHROOT bash -c "update-initramfs -u -k all 2>/dev/null || update-initramfs -u 2>/dev/null || true"
+        $CHROOT bash -c 'mkdir -p /boot/firmware; \
+            kvmlinuz=$(ls -1 /boot/vmlinuz-* 2>/dev/null | sort -V | tail -1 || true); \
+            if [[ -n "$kvmlinuz" ]]; then \
+                cp -f "$kvmlinuz" /boot/firmware/kernel8.img; \
+                kver=$(basename "$kvmlinuz" | sed "s/^vmlinuz-//"); \
+                [[ -f "/boot/initrd.img-$kver" ]] && cp -f "/boot/initrd.img-$kver" /boot/firmware/initramfs8 || true; \
+            fi'
     fi
 
     log "uConsole platform packages installed"
