@@ -73,8 +73,9 @@ jobs:
 
       - name: Compute checksums
         run: |
+          sudo chown -R "$(whoami)" dist/ || true
           cd dist
-          sha256sum *.img.xz *.bmap > SHA256SUMS || sha256sum * > SHA256SUMS
+          sha256sum *.img.xz *.bmap > SHA256SUMS
           cat SHA256SUMS
 
       - name: Upload artifacts
