@@ -1,0 +1,29 @@
+# ghOSt-uConsole Raspberry Pi boot configuration
+# Based on the official ClockworkPi uConsole CM4 image recipe and adjusted for
+# the ghOSt security-focused userland.
+
+[pi4]
+dtoverlay=clockworkpi-uconsole
+dtoverlay=vc4-kms-v3d-pi4,cma-384
+dtparam=spi=on
+enable_uart=1
+dtparam=pciex1
+
+[pi5]
+dtoverlay=clockworkpi-uconsole-cm5
+dtoverlay=vc4-kms-v3d-pi5,cma-384
+dtparam=uart0
+dtparam=pciex1
+dtparam=pciex1_gen=3
+
+[all]
+ignore_lcd=1
+max_framebuffers=2
+disable_overscan=1
+dtparam=audio=on
+dtoverlay=audremap,pins_12_13
+dtoverlay=dwc2,dr_mode=host
+dtparam=ant2
+
+# The uConsole internal panel and keyboard require the ClockworkPi overlays.
+# Only edit the section that matches the compute module you are using.

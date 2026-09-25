@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# Apply or inspect the recommended CM5 bootloader settings for reliable
+# microSD booting on the uConsole.
+set -euo pipefail
+
+TEMPLATE="${CM5_EEPROM_TEMPLATE_PATH:-/usr/local/share/ghost/cm5-eeprom.conf}"
+if [[ -r /proc/device-tree/model ]]; then
+    MODEL="$(tr -d '\0' < /proc/device-tree/model)"
+else
+    MODEL=""
+fi
+
+is_cm5() {
+    [[ "$MODEL" == *"Compute Module 5"* ]]
+}
+
+require_tool() {
+    command -v rpi-eeprom-config >/dev/null 2>&1 || {
+        echo "rpi-eeprom-config is not installed." >&2
+        exit 1
+    }
+}
+
+current_config() {
+    require_tool
+    rpi-eeprom-config
+}
+
+needs_update() {
+    [[ -f "$TEMPLATE" ]] || return 1
+
+    local current line
+    current="$(current_config)"
+    while IFS= read -r line; do
+        [[ -z "$line" || "$line" == \#* || "$line" == "[all]" ]] && continue
+        if ! grep -Fqx "$line" <<<"$current"; then
+            return 0
+        fi
+    done < "$TEMPLATE"
+    return 1
+}
+
+show_status() {
+    if ! is_cm5; then
+        echo "This system is not a Compute Module 5."
+        return 0
+    fi
+
+    echo "Detected model: $MODEL"
+    if needs_update; then
+        echo "Recommended CM5 EEPROM tweaks have not been fully applied yet."
+        echo "Run: sudo ghost-cm5-eeprom apply"
+    else
+        echo "Recommended CM5 EEPROM tweaks are already present."
+    fi
+}
+
+apply_template() {
+    if ! is_cm5; then
+        echo "This system is not a Compute Module 5. Nothing to do."
+        return 0
+    fi
+
+    [[ -f "$TEMPLATE" ]] || {
+        echo "Missing EEPROM template: $TEMPLATE" >&2
+        exit 1
+    }
+
+    require_tool
+    rpi-eeprom-config --apply "$TEMPLATE"
+    echo "Applied CM5 EEPROM settings. Reboot to activate them."
+}
+
+case "${1:-status}" in
+    status)
+        show_status
+        ;;
+    is-cm5)
+        is_cm5
+        ;;
+    needs-update)
+        needs_update
+        ;;
+    show)
+        cat "$TEMPLATE"
+        ;;
+    apply)
+        apply_template
+        ;;
+    *)
+        echo "Usage: ghost-cm5-eeprom [status|is-cm5|needs-update|show|apply]" >&2
+        exit 1
+        ;;
+esac

@@ -1,0 +1,34 @@
+# Pinned versions for reproducible ghOSt-uConsole build.
+# Bump only when intentionally rebasing. Mirrors rg35xxh-cyberdeck/VERSIONS pattern.
+
+DEBIAN_RELEASE=bookworm
+DEBIAN_MIRROR=http://deb.debian.org/debian
+DEBIAN_ARCH=arm64
+
+# Raspberry Pi firmware / kernel track (Bookworm arm64)
+RPI_MIRROR=http://archive.raspberrypi.com/debian
+RPI_KEY_URL=https://archive.raspberrypi.com/debian/raspberrypi.gpg.key
+
+# ClockworkPi community feed (uConsole CM4/CM5 kernel, overlays, audio, 4G).
+# Pinned by date; build verifies reachability and falls back to RPi stock kernel.
+CLOCKWORKPI_APT_URL=https://raw.githubusercontent.com/ak-rex/ClockworkPi-apt/main/debian
+CLOCKWORKPI_APT_KEY_URL=https://raw.githubusercontent.com/ak-rex/ClockworkPi-pi-gen/main/stage0/00-configure-apt/files/ak-rex.gpg.key
+CLOCKWORKPI_PIN_DATE=2026-05-01
+
+CLOCKWORKPI_KERNEL_PACKAGE=clockworkpi-kernel
+CLOCKWORKPI_FIRMWARE_PACKAGE=clockworkpi-cm-firmware
+CLOCKWORKPI_AUDIO_PACKAGE=clockworkpi-audio
+CLOCKWORKPI_4G_PACKAGE=uconsole-4g
+
+# Fallback stock Pi kernel packages when ClockworkPi feed is unreachable.
+FALLBACK_KERNEL_PKGS="raspberrypi-bootloader raspberrypi-kernel raspi-firmware"
+
+BOOT_FIRMWARE_DIR=/boot/firmware
+DTB_CM4=bcm2711-rpi-cm4.dtb
+DTB_CM5=bcm2712-rpi-cm5.dtb
+
+IMAGE_SIZE_GB=8
+BOOT_SIZE_MB=256
+TARGET_USER=ghost
+TARGET_UID=1000
+TARGET_HOSTNAME=uconsole
