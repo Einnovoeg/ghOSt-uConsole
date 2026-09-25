@@ -20,4 +20,5 @@ run "
 rm -f "$ROOTFS/usr/bin/qemu-aarch64-static"
 rm -f "$ROOTFS/etc/resolv.conf"
 ln -s /run/systemd/resolve/stub-resolv.conf "$ROOTFS/etc/resolv.conf" || true
-du -sh "$ROOTFS" | cut -f1 | xargs echo "[cleanup] rootfs size:"
+# du hits /proc pid churn under bind mounts — never fail the build on it
+du -sh "$ROOTFS" 2>/dev/null | cut -f1 | xargs echo "[cleanup] rootfs size:" || true

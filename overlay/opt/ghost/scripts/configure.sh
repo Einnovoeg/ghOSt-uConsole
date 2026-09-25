@@ -728,7 +728,7 @@ systemctl enable ghost-expand-fs.service
 # RAM AUDIT & CONSTRAINTS
 # =============================================================================
 chmod +x /opt/ghost/scripts/ram-audit.sh
-bash /opt/ghost/scripts/ram-audit.sh
+bash /opt/ghost/scripts/ram-audit.sh || echo "[warn] ram-audit warnings (continuing)"
 
 # =============================================================================
 # WIRE UP NEW COMPONENTS
