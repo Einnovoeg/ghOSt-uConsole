@@ -418,7 +418,14 @@ debootstrap_stage() {
     fi
 
     log "Copying qemu static binary..."
-    cp /usr/bin/qemu-aarch64-static "$ROOTFS_DIR/usr/bin/"
+    # Native ARM64 hosts (e.g. ubuntu-24.04-arm CI runners) execute the
+    # ARM64 rootfs directly — no qemu emulation needed. Only x86_64 build
+    # hosts need the static binary inside the chroot.
+    if [[ "$(uname -m)" != "aarch64" && "$(uname -m)" != "arm64" ]]; then
+        cp /usr/bin/qemu-aarch64-static "$ROOTFS_DIR/usr/bin/"
+    else
+        log "Native ARM64 host detected — skipping qemu (chroot runs unemulated)"
+    fi
 
     log "Copying DNS and network config..."
     cp -f /etc/resolv.conf "$ROOTFS_DIR/etc/resolv.conf"

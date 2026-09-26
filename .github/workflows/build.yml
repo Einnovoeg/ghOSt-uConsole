@@ -8,7 +8,10 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    # Native ARM64 runner: the whole rootfs builds unemulated (no qemu),
+    # roughly 3x faster than x86_64 + qemu-user-static. Required to fit the
+    # full ghOSt toolset inside the 6h GitHub-hosted cap.
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
@@ -20,7 +23,7 @@ jobs:
             debootstrap qemu-user-static binfmt-support \
             kpartx parted gdisk dosfstools xz-utils \
             device-tree-compiler rsync git curl wget \
-            python3 pv lz4 zstd parted
+            python3 pv pigz lz4 zstd parted
           sudo update-binfmts --enable qemu-aarch64 2>/dev/null || true
           df -h
 
